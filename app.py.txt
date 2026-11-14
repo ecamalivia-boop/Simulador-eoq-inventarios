@@ -1,0 +1,77 @@
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+st.set_page_config(
+    page_title="Simulador EOQ y Curvas de Costos", layout="centered"
+)
+
+st.title("📦 Simulador Interactivo: Modelo EOQ y Curvas de Costos")
+st.markdown(
+    """
+Esta aplicación permite visualizar la dinámica de costos de inventario y calcular el **Lote Óptimo de Pedido (EOQ)** 
+en función de la demanda anual, el costo de emisión y el costo de mantenimiento.
+"""
+)
+
+# --- Panel de Controles (Sidebar) ---
+st.sidebar.header("Parámetros de Entrada")
+D = st.sidebar.number_input(
+    "Demanda Anual (D) [unidades]",
+    min_value=100,
+    max_value=100000,
+    value=10000,
+    step=500,
+)
+S = st.sidebar.number_input(
+    "Costo por Pedido / Emisión (S) [$]",
+    min_value=10,
+    max_value=1000,
+    value=50,
+    step=5,
+)
+H = st.sidebar.number_input(
+    "Costo Anual de Mantenimiento por Unidad (H) [$]",
+    min_value=0.5,
+    max_value=100.0,
+    value=5.0,
+    step=0.5,
+)
+
+# --- Cálculo del EOQ ---
+eoq = np.sqrt((2 * D * S) / H)
+min_total_cost = (D / eoq) * S + (eoq / 2) * H
+
+# --- Mostrar Resultados Clave ---
+st.subheader("📊 Resultados del Modelo")
+col1, col2, col3 = st.columns(3)
+col1.metric("Lote Óptimo (EOQ)", f"{eoq:,.2f} un.")
+col2.metric("Costo Total Mínimo", f"${min_total_cost:,.2f}")
+col3.metric("Número de Pedidos/Año", f"{D / eoq:,.2f}")
+
+# --- Generación de Datos para las Curvas ---
+quantities = np.linspace(max(10, eoq * 0.2), eoq * 2.5, 200)
+holding_costs = (quantities / 2) * H
+ordering_costs = (D / quantities) * S
+total_costs = holding_costs + ordering_costs
+
+df_chart = pd.DataFrame(
+    {
+        "Cantidad de Pedido (Q)": quantities,
+        "Costo de Mantenimiento": holding_costs,
+        "Costo de Emisión": ordering_costs,
+        "Costo Total": total_costs,
+    }
+).set_index("Cantidad de Pedido (Q)")
+
+# --- Gráfica de Curvas ---
+st.subheader("📈 Gráfica de Costos de Inventario")
+st.line_chart(df_chart)
+
+st.markdown(
+    """
+**Nota pedagógica para la sesión:** 
+* El **punto mínimo** de la curva de Costo Total coincide exactamente con la intersección entre el Costo de Mantenimiento y el Costo de Emisión.
+* Al modificar los deslizadores, los estudiantes pueden comprobar cómo el incremento en el costo de hacer pedidos ($S$) desplaza el EOQ hacia lotes más grandes, mientras que un mayor costo de almacenamiento ($H$ adimensional o monetario) exige lotes más pequeños y frecuentes.
+"""
+)
